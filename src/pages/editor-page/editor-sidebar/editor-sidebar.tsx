@@ -14,7 +14,6 @@ import { Twitter, BookOpen, Group } from 'lucide-react';
 import { SquareStack, Table, Workflow } from 'lucide-react';
 import { useLayout } from '@/hooks/use-layout';
 import { useTranslation } from 'react-i18next';
-import { DiscordLogoIcon } from '@radix-ui/react-icons';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import ChartDBLogo from '@/assets/logo-light.png';
 import ChartDBDarkLogo from '@/assets/logo-dark.png';
@@ -81,18 +80,11 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = () => {
     const footerItems: SidebarItem[] = useMemo(
         () => [
             {
-                title: 'Discord',
-                icon: DiscordLogoIcon,
-                onClick: () =>
-                    window.open('https://discord.gg/QeFwyWSKwC', '_blank'),
-                active: false,
-            },
-            {
                 title: 'Twitter',
                 icon: Twitter,
                 onClick: () =>
                     window.open(
-                        'https://x.com/intent/follow?screen_name=jonathanfishner',
+                        'https://x.com/intent/follow?screen_name=b40yd',
                         '_blank'
                     ),
                 active: false,
@@ -117,7 +109,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = () => {
             {!isDesktop ? (
                 <SidebarHeader>
                     <a
-                        href="https://chartdb.io"
+                        href="https://zeroday.work"
                         className="cursor-pointer"
                         rel="noreferrer"
                     >
