@@ -26,38 +26,45 @@ import { DatabaseType } from './database-type';
 import type { DatabaseMetadata } from '../data/import-metadata/metadata-types/database-metadata';
 import { z } from 'zod';
 
+export const MAX_TABLE_SIZE = 450;
+export const MID_TABLE_SIZE = 337;
+export const MIN_TABLE_SIZE = 224;
+export const TABLE_MINIMIZED_FIELDS = 10;
+
 export interface DBTable {
     id: string;
     name: string;
-    schema?: string;
+    schema?: string | null;
     x: number;
     y: number;
     fields: DBField[];
     indexes: DBIndex[];
     color: string;
     isView: boolean;
-    isMaterializedView?: boolean;
+    isMaterializedView?: boolean | null;
     createdAt: number;
-    width?: number;
-    comments?: string;
-    order?: number;
+    width?: number | null;
+    comments?: string | null;
+    order?: number | null;
+    expanded?: boolean | null;
 }
 
 export const dbTableSchema: z.ZodType<DBTable> = z.object({
     id: z.string(),
     name: z.string(),
-    schema: z.string().optional(),
+    schema: z.string().or(z.null()).optional(),
     x: z.number(),
     y: z.number(),
     fields: z.array(dbFieldSchema),
     indexes: z.array(dbIndexSchema),
     color: z.string(),
     isView: z.boolean(),
-    isMaterializedView: z.boolean().optional(),
+    isMaterializedView: z.boolean().or(z.null()).optional(),
     createdAt: z.number(),
-    width: z.number().optional(),
-    comments: z.string().optional(),
-    order: z.number().optional(),
+    width: z.number().or(z.null()).optional(),
+    comments: z.string().or(z.null()).optional(),
+    order: z.number().or(z.null()).optional(),
+    expanded: z.boolean().or(z.null()).optional(),
 });
 
 export const shouldShowTablesBySchemaFilter = (
@@ -175,8 +182,8 @@ export const adjustTablePositions = ({
     const relationships = deepCopy(inputRelationships);
 
     const adjustPositionsForTables = (tablesToAdjust: DBTable[]) => {
-        const tableWidth = 200;
-        const tableHeight = 300;
+        const defaultTableWidth = 200;
+        const defaultTableHeight = 300;
         const gapX = 100;
         const gapY = 100;
         const startX = 100;
@@ -205,6 +212,20 @@ export const adjustTablePositions = ({
         const positionedTables = new Set<string>();
         const tablePositions = new Map<string, { x: number; y: number }>();
 
+        const getTableWidthAndHeight = (
+            tableId: string
+        ): {
+            width: number;
+            height: number;
+        } => {
+            const table = tablesToAdjust.find((t) => t.id === tableId);
+
+            if (!table)
+                return { width: defaultTableWidth, height: defaultTableHeight };
+
+            return getTableDimensions(table);
+        };
+
         const isOverlapping = (
             x: number,
             y: number,
@@ -212,9 +233,11 @@ export const adjustTablePositions = ({
         ): boolean => {
             for (const [tableId, pos] of tablePositions) {
                 if (tableId === currentTableId) continue;
+
+                const { width, height } = getTableWidthAndHeight(tableId);
                 if (
-                    Math.abs(x - pos.x) < tableWidth + gapX &&
-                    Math.abs(y - pos.y) < tableHeight + gapY
+                    Math.abs(x - pos.x) < width + gapX &&
+                    Math.abs(y - pos.y) < height + gapY
                 ) {
                     return true;
                 }
@@ -227,7 +250,8 @@ export const adjustTablePositions = ({
             baseY: number,
             tableId: string
         ): { x: number; y: number } => {
-            const spiralStep = Math.max(tableWidth, tableHeight) / 2;
+            const { width, height } = getTableWidthAndHeight(tableId);
+            const spiralStep = Math.max(width, height) / 2;
             let angle = 0;
             let radius = 0;
             let iterations = 0;
@@ -279,10 +303,21 @@ export const adjustTablePositions = ({
                         (t) => t.id === connectedTableId
                     );
                     if (connectedTable) {
+                        const { width: tableWidth, height: tableHeight } =
+                            getTableWidthAndHeight(table.id);
+                        const {
+                            width: connectedTableWidth,
+                            height: connectedTableHeight,
+                        } = getTableWidthAndHeight(connectedTableId);
+                        const avgWidth = (tableWidth + connectedTableWidth) / 2;
+
+                        const avgHeight =
+                            (tableHeight + connectedTableHeight) / 2;
+
                         const newX =
-                            x + Math.cos(angle) * (tableWidth + gapX * 2);
+                            x + Math.cos(angle) * (avgWidth + gapX * 2);
                         const newY =
-                            y + Math.sin(angle) * (tableHeight + gapY * 2);
+                            y + Math.sin(angle) * (avgHeight + gapY * 2);
                         positionTable(connectedTable, newX, newY);
                         angle += angleStep;
                     }
@@ -295,6 +330,9 @@ export const adjustTablePositions = ({
             if (!positionedTables.has(table.id)) {
                 const row = Math.floor(index / 6);
                 const col = index % 6;
+                const { width: tableWidth, height: tableHeight } =
+                    getTableWidthAndHeight(table.id);
+
                 const x = startX + col * (tableWidth + gapX * 2);
                 const y = startY + row * (tableHeight + gapY * 2);
                 positionTable(table, x, y);
@@ -333,4 +371,37 @@ export const adjustTablePositions = ({
     }
 
     return tables;
+};
+
+export const calcTableHeight = (table?: DBTable): number => {
+    if (!table) {
+        return 300;
+    }
+
+    const FIELD_HEIGHT = 32; // h-8 per field
+    const TABLE_FOOTER_HEIGHT = 32; // h-8 for show more button
+    const TABLE_HEADER_HEIGHT = 42;
+    // Calculate how many fields are visible
+    const fieldCount = table.fields.length;
+    let visibleFieldCount = fieldCount;
+
+    // If not expanded, use minimum of field count and TABLE_MINIMIZED_FIELDS
+    if (!table.expanded) {
+        visibleFieldCount = Math.min(fieldCount, TABLE_MINIMIZED_FIELDS);
+    }
+
+    // Calculate height based on visible fields
+    const fieldsHeight = visibleFieldCount * FIELD_HEIGHT;
+    const showMoreButtonHeight =
+        fieldCount > TABLE_MINIMIZED_FIELDS ? TABLE_FOOTER_HEIGHT : 0;
+
+    return TABLE_HEADER_HEIGHT + fieldsHeight + showMoreButtonHeight;
+};
+
+export const getTableDimensions = (
+    table: DBTable
+): { width: number; height: number } => {
+    const height = calcTableHeight(table);
+    const width = table.width || MIN_TABLE_SIZE;
+    return { width, height };
 };

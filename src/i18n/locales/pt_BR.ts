@@ -232,6 +232,32 @@ export const pt_BR: LanguageTranslation = {
                     description: 'Create an area to get started',
                 },
             },
+            // TODO: Translate
+            custom_types_section: {
+                custom_types: 'Custom Types',
+                filter: 'Filter',
+                clear: 'Clear Filter',
+                no_results: 'No custom types found matching your filter.',
+                empty_state: {
+                    title: 'No custom types',
+                    description:
+                        'Custom types will appear here when they are available in your database',
+                },
+                custom_type: {
+                    kind: 'Kind',
+                    enum_values: 'Enum Values',
+                    composite_fields: 'Fields',
+                    no_fields: 'No fields defined',
+                    field_name_placeholder: 'Field name',
+                    field_type_placeholder: 'Select type',
+                    add_field: 'Add Field',
+                    custom_type_actions: {
+                        title: 'Actions',
+                        delete_custom_type: 'Delete',
+                    },
+                    delete_custom_type: 'Delete Type',
+                },
+            },
         },
 
         toolbar: {
@@ -258,7 +284,7 @@ export const pt_BR: LanguageTranslation = {
                 title: 'Importe seu Banco de Dados',
                 database_edition: 'Edição do Banco de Dados:',
                 step_1: 'Execute este script no seu banco de dados:',
-                step_2: 'Cole o resultado do script aqui:',
+                step_2: 'Cole o resultado do script aqui →',
                 script_results_placeholder: 'Resultados do script aqui...',
                 ssms_instructions: {
                     button_text: 'Instruções do SSMS',

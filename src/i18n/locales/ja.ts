@@ -237,6 +237,32 @@ export const ja: LanguageTranslation = {
                     description: 'Create an area to get started',
                 },
             },
+            // TODO: Translate
+            custom_types_section: {
+                custom_types: 'Custom Types',
+                filter: 'Filter',
+                clear: 'Clear Filter',
+                no_results: 'No custom types found matching your filter.',
+                empty_state: {
+                    title: 'No custom types',
+                    description:
+                        'Custom types will appear here when they are available in your database',
+                },
+                custom_type: {
+                    kind: 'Kind',
+                    enum_values: 'Enum Values',
+                    composite_fields: 'Fields',
+                    no_fields: 'No fields defined',
+                    field_name_placeholder: 'Field name',
+                    field_type_placeholder: 'Select type',
+                    add_field: 'Add Field',
+                    custom_type_actions: {
+                        title: 'Actions',
+                        delete_custom_type: 'Delete',
+                    },
+                    delete_custom_type: 'Delete Type',
+                },
+            },
         },
 
         toolbar: {
@@ -263,7 +289,7 @@ export const ja: LanguageTranslation = {
                 title: 'データベースをインポート',
                 database_edition: 'データベースエディション:',
                 step_1: 'このスクリプトをデータベースで実行してください:',
-                step_2: 'ここにスクリプトの結果を貼り付けてください:',
+                step_2: 'ここにスクリプトの結果を貼り付けてください →',
                 script_results_placeholder: 'ここにスクリプトの結果...',
                 ssms_instructions: {
                     button_text: 'SSMSの手順',

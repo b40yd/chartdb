@@ -30,7 +30,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import equal from 'fast-deep-equal';
 import type { TableNodeType } from './table-node/table-node';
-import { MIN_TABLE_SIZE, TableNode } from './table-node/table-node';
+import { TableNode } from './table-node/table-node';
 import type { RelationshipEdgeType } from './relationship-edge/relationship-edge';
 import { RelationshipEdge } from './relationship-edge/relationship-edge';
 import { useChartDB } from '@/hooks/use-chartdb';
@@ -48,7 +48,10 @@ import { Badge } from '@/components/badge/badge';
 import { useTheme } from '@/hooks/use-theme';
 import { useTranslation } from 'react-i18next';
 import type { DBTable } from '@/lib/domain/db-table';
-import { shouldShowTablesBySchemaFilter } from '@/lib/domain/db-table';
+import {
+    MIN_TABLE_SIZE,
+    shouldShowTablesBySchemaFilter,
+} from '@/lib/domain/db-table';
 import { useLocalConfig } from '@/hooks/use-local-config';
 import {
     Tooltip,
@@ -760,7 +763,10 @@ export const Canvas: React.FC<CanvasProps> = ({ initialTables }) => {
 
                 const measured = {
                     ...(node.measured ?? {}),
-                    height: calcTableHeight(event.data.fields.length),
+                    height: calcTableHeight({
+                        ...node.data.table,
+                        fields: event.data.fields,
+                    }),
                 };
 
                 newOverlappingGraph = findTableOverlapping(

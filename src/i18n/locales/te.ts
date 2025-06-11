@@ -233,6 +233,32 @@ export const te: LanguageTranslation = {
                     description: 'Create an area to get started',
                 },
             },
+            // TODO: Translate
+            custom_types_section: {
+                custom_types: 'Custom Types',
+                filter: 'Filter',
+                clear: 'Clear Filter',
+                no_results: 'No custom types found matching your filter.',
+                empty_state: {
+                    title: 'No custom types',
+                    description:
+                        'Custom types will appear here when they are available in your database',
+                },
+                custom_type: {
+                    kind: 'Kind',
+                    enum_values: 'Enum Values',
+                    composite_fields: 'Fields',
+                    no_fields: 'No fields defined',
+                    field_name_placeholder: 'Field name',
+                    field_type_placeholder: 'Select type',
+                    add_field: 'Add Field',
+                    custom_type_actions: {
+                        title: 'Actions',
+                        delete_custom_type: 'Delete',
+                    },
+                    delete_custom_type: 'Delete Type',
+                },
+            },
         },
 
         toolbar: {
@@ -259,7 +285,7 @@ export const te: LanguageTranslation = {
                 title: 'మీ డేటాబేస్‌ను దిగుమతి చేసుకోండి',
                 database_edition: 'డేటాబేస్ ఎడిషన్:',
                 step_1: 'ఈ స్క్రిప్ట్ను మీ డేటాబేస్‌లో అమలు చేయండి:',
-                step_2: 'స్క్రిప్ట్ ఫలితాన్ని ఇక్కడ పేస్ట్ చేయండి:',
+                step_2: 'స్క్రిప్ట్ ఫలితాన్ని ఇక్కడ పేస్ట్ చేయండి →',
                 script_results_placeholder: 'స్క్రిప్ట్ ఫలితాలు ఇక్కడ...',
                 ssms_instructions: {
                     button_text: 'SSMS సూచనల్ని చూపించు',

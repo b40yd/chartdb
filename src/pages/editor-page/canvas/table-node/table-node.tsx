@@ -15,7 +15,13 @@ import {
     SquareMinus,
 } from 'lucide-react';
 import { Label } from '@/components/label/label';
-import type { DBTable } from '@/lib/domain/db-table';
+import {
+    MAX_TABLE_SIZE,
+    MID_TABLE_SIZE,
+    MIN_TABLE_SIZE,
+    TABLE_MINIMIZED_FIELDS,
+    type DBTable,
+} from '@/lib/domain/db-table';
 import { TableNodeField } from './table-node-field';
 import { useLayout } from '@/hooks/use-layout';
 import { useChartDB } from '@/hooks/use-chartdb';
@@ -45,11 +51,6 @@ export type TableNodeType = Node<
     'table'
 >;
 
-export const MAX_TABLE_SIZE = 450;
-export const MID_TABLE_SIZE = 337;
-export const MIN_TABLE_SIZE = 224;
-export const TABLE_MINIMIZED_FIELDS = 10;
-
 export const TableNode: React.FC<NodeProps<TableNodeType>> = React.memo(
     ({
         selected,
@@ -60,7 +61,7 @@ export const TableNode: React.FC<NodeProps<TableNodeType>> = React.memo(
         const { updateTable, relationships, readonly } = useChartDB();
         const edges = useStore((store) => store.edges) as EdgeType[];
         const { openTableFromSidebar, selectSidebarSection } = useLayout();
-        const [expanded, setExpanded] = useState(false);
+        const [expanded, setExpanded] = useState(table.expanded ?? false);
         const { t } = useTranslation();
         const [editMode, setEditMode] = useState(false);
         const [tableName, setTableName] = useState(table.name);
@@ -138,9 +139,13 @@ export const TableNode: React.FC<NodeProps<TableNodeType>> = React.memo(
             });
         }, [table.id, updateTable]);
 
-        const toggleExpand = () => {
-            setExpanded(!expanded);
-        };
+        const toggleExpand = useCallback(() => {
+            setExpanded((prev) => {
+                const value = !prev;
+                updateTable(table.id, { expanded: value });
+                return value;
+            });
+        }, [table.id, updateTable]);
 
         const isMustDisplayedField = useCallback(
             (field: DBField) => {
@@ -205,6 +210,12 @@ export const TableNode: React.FC<NodeProps<TableNodeType>> = React.memo(
             e.stopPropagation();
             setEditMode(true);
         };
+
+        React.useEffect(() => {
+            if (table.name.trim()) {
+                setTableName(table.name.trim());
+            }
+        }, [table.name]);
 
         return (
             <TableNodeContextMenu table={table}>

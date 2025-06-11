@@ -36,6 +36,7 @@ import { useDebounce } from '@/hooks/use-debounce-v2';
 import { InstructionsSection } from './instructions-section/instructions-section';
 import { parseSQLError } from '@/lib/data/sql-import';
 import type { editor } from 'monaco-editor';
+import { waitFor } from '@/lib/utils';
 
 const errorScriptOutputMessage =
     'Invalid JSON. Please correct it or contact us at support@chartdb.io for help.';
@@ -211,7 +212,8 @@ export const ImportDatabase: React.FC<ImportDatabaseProps> = ({
     const handleCheckJson = useCallback(async () => {
         setIsCheckingJson(true);
 
-        const fixedJson = await fixMetadataJson(scriptResult);
+        await waitFor(1000);
+        const fixedJson = fixMetadataJson(scriptResult);
 
         if (isStringMetadataJson(fixedJson)) {
             setScriptResult(fixedJson);
@@ -298,7 +300,7 @@ export const ImportDatabase: React.FC<ImportDatabaseProps> = ({
                 <div className="w-full text-center text-xs text-muted-foreground">
                     {importMethod === 'query'
                         ? 'Smart Query Output'
-                        : 'SQL DDL'}
+                        : 'SQL Script'}
                 </div>
                 <div className="flex-1 overflow-hidden">
                     <Suspense fallback={<Spinner />}>
@@ -366,7 +368,7 @@ export const ImportDatabase: React.FC<ImportDatabaseProps> = ({
                 {isDesktop ? (
                     <ResizablePanelGroup
                         direction={isDesktop ? 'horizontal' : 'vertical'}
-                        className="min-h-[500px] md:min-h-fit"
+                        className="min-h-[500px]"
                     >
                         <ResizablePanel
                             defaultSize={25}
