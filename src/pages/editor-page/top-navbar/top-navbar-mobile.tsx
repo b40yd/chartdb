@@ -36,7 +36,7 @@ export const TopNavbarMobile: React.FC<TopNavbarMobileProps> = () => {
                             <MenuIcon className="size-5" />
                         </Button>
                         <a
-                            href="https://chartdb.io"
+                            href="https://zeroday.work"
                             className="cursor-pointer"
                             rel="noreferrer"
                         >

@@ -436,12 +436,14 @@ export async function fromMySQL(sqlContent: string): Promise<SQLParserResult> {
                                                                     colName
                                                             );
                                                         if (col) {
-                                                            col.primaryKey = true;
+                                                            col.primaryKey =
+                                                                true;
                                                             // Only mark as unique if single-column PK
                                                             if (
                                                                 isSingleColumnPK
                                                             ) {
-                                                                col.unique = true;
+                                                                col.unique =
+                                                                    true;
                                                             }
                                                         }
                                                     }

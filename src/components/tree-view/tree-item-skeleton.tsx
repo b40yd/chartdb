@@ -2,7 +2,8 @@ import React from 'react';
 import { Skeleton } from '../skeleton/skeleton';
 import { cn } from '@/lib/utils';
 
-export interface TreeItemSkeletonProps extends React.HTMLAttributes<HTMLDivElement> {}
+export interface TreeItemSkeletonProps
+    extends React.HTMLAttributes<HTMLDivElement> {}
 
 export const TreeItemSkeleton: React.FC<TreeItemSkeletonProps> = ({
     className,

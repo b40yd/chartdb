@@ -8,7 +8,7 @@ export interface TemplatesPageHelmetProps {
     isFeatured: boolean;
 }
 
-const CHARTDB_HOST_URL = 'https://chartdb.io';
+const CHARTDB_HOST_URL = 'https://zeroday.work';
 export const TemplatesPageHelmet: React.FC<TemplatesPageHelmetProps> = ({
     tag,
     isFeatured,

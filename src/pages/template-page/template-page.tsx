@@ -66,10 +66,10 @@ const TemplatePageComponent: React.FC = () => {
             <Helmet>
                 {template ? (
                     <>
-                        {HOST_URL !== 'https://chartdb.io' ? (
+                        {HOST_URL !== 'https://zeroday.work' ? (
                             <link
                                 rel="canonical"
-                                href={`https://chartdb.io/templates/${templateSlug}`}
+                                href={`https://zeroday.work/templates/${templateSlug}`}
                             />
                         ) : null}
                         <title>
@@ -126,7 +126,7 @@ const TemplatePageComponent: React.FC = () => {
                     <div className="flex flex-1 justify-start gap-x-3">
                         <div className="flex items-center font-primary">
                             <a
-                                href="https://chartdb.io"
+                                href="https://zeroday.work"
                                 className="cursor-pointer"
                                 rel="noreferrer"
                             >

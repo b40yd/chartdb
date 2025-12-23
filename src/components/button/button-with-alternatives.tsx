@@ -27,8 +27,7 @@ export interface ButtonAlternative {
 }
 
 export interface ButtonWithAlternativesProps
-    extends
-        React.ButtonHTMLAttributes<HTMLButtonElement>,
+    extends React.ButtonHTMLAttributes<HTMLButtonElement>,
         VariantProps<typeof buttonVariants> {
     asChild?: boolean;
     alternatives: Array<ButtonAlternative>;
