@@ -329,10 +329,16 @@ export function exportPostgreSQLToMySQL({
                     (f) => f.primaryKey
                 );
 
-                return `${
-                    table.comments ? formatTableComment(table.comments) : ''
-                }\nCREATE TABLE IF NOT EXISTS ${tableName} (\n${table.fields
-                    .map((field: DBField) => {
+                // Check if we have following constraints (for comma placement)
+                const validCheckConstraints = (
+                    table.checkConstraints ?? []
+                ).filter((c) => c.expression && c.expression.trim());
+                const hasFollowingConstraints =
+                    primaryKeyFields.length > 0 ||
+                    validCheckConstraints.length > 0;
+
+                const fieldDefinitions = table.fields.map(
+                    (field: DBField, index: number, allFields: DBField[]) => {
                         const fieldName = `\`${field.name}\``;
 
                         // Map type to MySQL
@@ -377,22 +383,35 @@ export function exportPostgreSQLToMySQL({
                             ? ` -- ${fullInlineComment}`
                             : '';
 
-                        return `${exportFieldComment(field.comments ?? '')}    ${fieldName} ${typeName}${notNull}${autoIncrement}${unique}${defaultValue}${comment}${sqlInlineComment}`;
-                    })
-                    .join(',\n')}${
+                        // Determine if this field needs a trailing comma
+                        const isLastField = index === allFields.length - 1;
+                        const needsComma =
+                            !isLastField || hasFollowingConstraints;
+
+                        return `${exportFieldComment(field.comments ?? '')}    ${fieldName} ${typeName}${notNull}${autoIncrement}${unique}${defaultValue}${comment}${needsComma ? ',' : ''}${sqlInlineComment}`;
+                    }
+                );
+
+                return `${
+                    table.comments ? formatTableComment(table.comments) : ''
+                }\nCREATE TABLE IF NOT EXISTS ${tableName} (\n${fieldDefinitions.join('\n')}${
                     // Add PRIMARY KEY as table constraint
                     primaryKeyFields.length > 0
-                        ? `,\n    ${(() => {
-                              // Find PK index to get the constraint name
-                              const pkIndex = table.indexes.find(
-                                  (idx) => idx.isPrimaryKey
-                              );
-                              return pkIndex?.name
-                                  ? `CONSTRAINT \`${pkIndex.name}\` `
-                                  : '';
-                          })()}PRIMARY KEY (${primaryKeyFields
+                        ? `\n    PRIMARY KEY (${primaryKeyFields
                               .map((f) => `\`${f.name}\``)
-                              .join(', ')})`
+                              .join(
+                                  ', '
+                              )})${validCheckConstraints.length > 0 ? ',' : ''}`
+                        : ''
+                }${
+                    // Add CHECK constraints (already computed above as validCheckConstraints)
+                    validCheckConstraints.length > 0
+                        ? validCheckConstraints
+                              .map(
+                                  (constraint, index) =>
+                                      `${index > 0 ? ',' : ''}\n    CHECK (${constraint.expression})`
+                              )
+                              .join('')
                         : ''
                 }\n)${
                     // MySQL supports table comments
@@ -550,35 +569,31 @@ export function exportPostgreSQLToMySQL({
                 }
 
                 // Determine which table should have the foreign key based on cardinality
+                // - FK goes on the "many" side when cardinalities differ
+                // - FK goes on target when cardinalities are the same (one:one, many:many)
                 let fkTable, fkField, refTable, refField;
 
                 if (
-                    r.sourceCardinality === 'one' &&
+                    r.sourceCardinality === 'many' &&
                     r.targetCardinality === 'many'
                 ) {
-                    fkTable = targetTable;
-                    fkField = targetField;
-                    refTable = sourceTable;
-                    refField = sourceField;
+                    // Many-to-many relationships need a junction table, skip
+                    return '';
                 } else if (
                     r.sourceCardinality === 'many' &&
                     r.targetCardinality === 'one'
                 ) {
-                    fkTable = sourceTable;
-                    fkField = sourceField;
-                    refTable = targetTable;
-                    refField = targetField;
-                } else if (
-                    r.sourceCardinality === 'one' &&
-                    r.targetCardinality === 'one'
-                ) {
+                    // FK goes on source table (the many side)
                     fkTable = sourceTable;
                     fkField = sourceField;
                     refTable = targetTable;
                     refField = targetField;
                 } else {
-                    // Many-to-many relationships need a junction table, skip
-                    return '';
+                    // All other cases: FK goes on target table
+                    fkTable = targetTable;
+                    fkField = targetField;
+                    refTable = sourceTable;
+                    refField = sourceField;
                 }
 
                 const fkTableName = fkTable.schema

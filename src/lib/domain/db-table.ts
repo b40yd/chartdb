@@ -1,6 +1,10 @@
 import { dbIndexSchema, type DBIndex } from './db-index';
 import { dbFieldSchema, type DBField } from './db-field';
 import type { DBRelationship } from './db-relationship';
+import {
+    dbCheckConstraintSchema,
+    type DBCheckConstraint,
+} from './db-check-constraint';
 import { deepCopy, findContainingArea } from '../utils';
 import { schemaNameToDomainSchemaName } from './db-schema';
 import { z } from 'zod';
@@ -19,6 +23,7 @@ export interface DBTable {
     y: number;
     fields: DBField[];
     indexes: DBIndex[];
+    checkConstraints?: DBCheckConstraint[] | null;
     color: string;
     isView: boolean;
     isMaterializedView?: boolean | null;
@@ -38,6 +43,7 @@ export const dbTableSchema: z.ZodType<DBTable> = z.object({
     y: z.number(),
     fields: z.array(dbFieldSchema),
     indexes: z.array(dbIndexSchema),
+    checkConstraints: z.array(dbCheckConstraintSchema).or(z.null()).optional(),
     color: z.string(),
     isView: z.boolean(),
     isMaterializedView: z.boolean().or(z.null()).optional(),
@@ -179,7 +185,7 @@ function isTableInsideArea(table: DBTable, area: Area): boolean {
 }
 
 // Helper function to position tables within an area
-function positionTablesWithinArea(
+export function positionTablesWithinArea(
     tables: DBTable[],
     _relationships: DBRelationship[],
     area: Area
@@ -222,7 +228,7 @@ function positionTablesWithinArea(
 }
 
 // Original algorithm with area avoidance
-function adjustTablePositionsWithoutAreas(
+export function adjustTablePositionsWithoutAreas(
     tables: DBTable[],
     relationships: DBRelationship[],
     mode: 'all' | 'perSchema',

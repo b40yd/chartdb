@@ -142,6 +142,7 @@ export const TableField: React.FC<TableFieldProps> = ({
                                     'side_panel.tables_section.table.no_types_found'
                                 )}
                                 readonly={readonly}
+                                modal={false}
                             />
                         </span>
                     </TooltipTrigger>
@@ -160,7 +161,11 @@ export const TableField: React.FC<TableFieldProps> = ({
                             <TableFieldToggle
                                 pressed={nullable}
                                 onPressedChange={handleNullableToggle}
-                                disabled={readonly || typeRequiresNotNull}
+                                disabled={
+                                    readonly ||
+                                    typeRequiresNotNull ||
+                                    primaryKey
+                                }
                             >
                                 N
                             </TableFieldToggle>

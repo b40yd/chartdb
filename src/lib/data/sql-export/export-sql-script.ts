@@ -16,7 +16,28 @@ import { escapeSQLComment } from './export-per-type/common';
 import {
     databaseTypesWithCommentSupport,
     supportsCustomTypes,
+    supportsCheckConstraints,
 } from '@/lib/domain/database-capabilities';
+
+// Function to normalize over-escaped default values
+// Handles cases like '''value'' which should be 'value'
+const normalizeQuotedDefault = (value: string): string => {
+    // Check for over-escaped patterns: '''value'', ''value'', etc.
+    // These happen when a quoted string gets re-quoted during import/export cycles
+    const overEscapedMatch = value.match(/^('{2,})(.*?)('{1,})$/);
+    if (overEscapedMatch) {
+        const [, leadingQuotes, innerValue, trailingQuotes] = overEscapedMatch;
+        // If we have more than one leading/trailing quote, it's over-escaped
+        if (leadingQuotes.length > 1 || trailingQuotes.length > 1) {
+            // Extract the actual value and re-quote properly
+            // First, unescape any doubled quotes in the inner value
+            const unescaped = innerValue.replace(/''/g, "'");
+            // Return properly quoted string
+            return `'${unescaped.replace(/'/g, "''")}'`;
+        }
+    }
+    return value;
+};
 
 // Function to format default values with proper quoting
 const formatDefaultValue = (value: string): string => {
@@ -49,12 +70,13 @@ const formatDefaultValue = (value: string): string => {
         return trimmed;
     }
 
-    // Already quoted strings - keep as is
+    // Already quoted strings - normalize and return
     if (
         (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
         (trimmed.startsWith('"') && trimmed.endsWith('"'))
     ) {
-        return trimmed;
+        // Normalize over-escaped quotes (e.g., '''value'' -> 'value')
+        return normalizeQuotedDefault(trimmed);
     }
 
     // Check if it's a simple identifier (alphanumeric, no spaces) that might be a currency or enum
@@ -134,11 +156,13 @@ export const exportBaseSQL = ({
     targetDatabaseType,
     isDBMLFlow = false,
     onlyRelationships = false,
+    skipFKGeneration = false,
 }: {
     diagram: Diagram;
     targetDatabaseType: DatabaseType;
     isDBMLFlow?: boolean;
     onlyRelationships?: boolean;
+    skipFKGeneration?: boolean;
 }): string => {
     const { tables, relationships } = diagram;
 
@@ -487,15 +511,9 @@ export const exportBaseSQL = ({
                 }
             }
 
-            // Handle PRIMARY KEY constraint - only add inline if single PK without named constraint
-            const pkIndex = table.indexes.find((idx) => idx.isPrimaryKey);
-            // Only use CONSTRAINT syntax if PK index has a non-empty name
-            const useNamedConstraint = !!pkIndex?.name;
-            if (
-                field.primaryKey &&
-                !hasCompositePrimaryKey &&
-                !useNamedConstraint
-            ) {
+            // Handle PRIMARY KEY constraint - add inline for single PK fields
+            // Never use named constraints to avoid duplicate constraint name issues
+            if (field.primaryKey && !hasCompositePrimaryKey) {
                 sqlScript += ' PRIMARY KEY';
 
                 // For SQLite with DBML flow, add AUTOINCREMENT after PRIMARY KEY
@@ -510,31 +528,39 @@ export const exportBaseSQL = ({
                 }
             }
 
-            // Add a comma after each field except the last one (or before PK constraint)
-            const needsPKConstraint =
-                hasCompositePrimaryKey ||
-                (primaryKeyFields.length === 1 && useNamedConstraint);
-            if (index < table.fields.length - 1 || needsPKConstraint) {
+            // Add a comma after each field except the last one (or before composite PK constraint)
+            if (index < table.fields.length - 1 || hasCompositePrimaryKey) {
                 sqlScript += ',\n';
             }
         });
 
-        // Add primary key constraint if needed (for composite PKs or single PK with custom name)
-        const pkIndex = table.indexes.find((idx) => idx.isPrimaryKey);
-        // Only use CONSTRAINT syntax if PK index has a non-empty name
-        const useNamedConstraint = !!pkIndex?.name;
-        if (
-            hasCompositePrimaryKey ||
-            (primaryKeyFields.length === 1 && useNamedConstraint)
-        ) {
+        // Add primary key constraint for composite PKs only (single PKs are inline)
+        // Never use named constraints to avoid duplicate constraint name issues
+        if (hasCompositePrimaryKey) {
             const pkFieldNames = primaryKeyFields
                 .map((f) => getQuotedFieldName(f.name, isDBMLFlow))
                 .join(', ');
-            if (useNamedConstraint) {
-                sqlScript += `\n  CONSTRAINT ${pkIndex.name} PRIMARY KEY (${pkFieldNames})`;
-            } else {
-                sqlScript += `\n  PRIMARY KEY (${pkFieldNames})`;
-            }
+            sqlScript += `\n  PRIMARY KEY (${pkFieldNames})`;
+        }
+
+        // Add CHECK constraints (only for databases that support them, filter out empty)
+        const dbSupportsChecks = supportsCheckConstraints(targetDatabaseType);
+        const validCheckConstraints = (table.checkConstraints ?? []).filter(
+            (c) => c.expression && c.expression.trim()
+        );
+        if (validCheckConstraints.length > 0 && dbSupportsChecks) {
+            validCheckConstraints.forEach((checkConstraint, idx) => {
+                // Add comma if needed (after fields or composite PK constraint)
+                if (
+                    idx === 0 &&
+                    (table.fields.length > 0 || hasCompositePrimaryKey)
+                ) {
+                    sqlScript += ',';
+                } else if (idx > 0) {
+                    sqlScript += ',';
+                }
+                sqlScript += `\n  CHECK (${checkConstraint.expression})`;
+            });
         }
 
         sqlScript += '\n);\n';
@@ -616,85 +642,80 @@ export const exportBaseSQL = ({
         }
     });
 
-    if (nonViewTables.length > 0 && (relationships?.length ?? 0) > 0) {
-        sqlScript += '\n';
-    }
+    // Skip FK generation when requested (e.g., for DBML export which generates Refs directly)
+    if (!skipFKGeneration) {
+        if (nonViewTables.length > 0 && (relationships?.length ?? 0) > 0) {
+            sqlScript += '\n';
+        }
 
-    // Handle relationships (foreign keys)
-    relationships?.forEach((relationship) => {
-        const sourceTable = nonViewTables.find(
-            (table) => table.id === relationship.sourceTableId
-        );
-        const targetTable = nonViewTables.find(
-            (table) => table.id === relationship.targetTableId
-        );
+        // Handle relationships (foreign keys)
+        relationships?.forEach((relationship) => {
+            const sourceTable = nonViewTables.find(
+                (table) => table.id === relationship.sourceTableId
+            );
+            const targetTable = nonViewTables.find(
+                (table) => table.id === relationship.targetTableId
+            );
 
-        const sourceTableField = sourceTable?.fields.find(
-            (field) => field.id === relationship.sourceFieldId
-        );
-        const targetTableField = targetTable?.fields.find(
-            (field) => field.id === relationship.targetFieldId
-        );
-
-        if (
-            sourceTable &&
-            targetTable &&
-            sourceTableField &&
-            targetTableField
-        ) {
-            // Determine which table should have the foreign key based on cardinality
-            // In a 1:many relationship, the foreign key goes on the "many" side
-            // If source is "one" and target is "many", FK goes on target table
-            // If source is "many" and target is "one", FK goes on source table
-            let fkTable, fkField, refTable, refField;
+            const sourceTableField = sourceTable?.fields.find(
+                (field) => field.id === relationship.sourceFieldId
+            );
+            const targetTableField = targetTable?.fields.find(
+                (field) => field.id === relationship.targetFieldId
+            );
 
             if (
-                relationship.sourceCardinality === 'one' &&
-                relationship.targetCardinality === 'many'
+                sourceTable &&
+                targetTable &&
+                sourceTableField &&
+                targetTableField
             ) {
-                // FK goes on target table
-                fkTable = targetTable;
-                fkField = targetTableField;
-                refTable = sourceTable;
-                refField = sourceTableField;
-            } else if (
-                relationship.sourceCardinality === 'many' &&
-                relationship.targetCardinality === 'one'
-            ) {
-                // FK goes on source table
-                fkTable = sourceTable;
-                fkField = sourceTableField;
-                refTable = targetTable;
-                refField = targetTableField;
-            } else if (
-                relationship.sourceCardinality === 'one' &&
-                relationship.targetCardinality === 'one'
-            ) {
-                // For 1:1, FK can go on either side, but typically goes on the table that references the other
-                // We'll keep the current behavior for 1:1
-                fkTable = sourceTable;
-                fkField = sourceTableField;
-                refTable = targetTable;
-                refField = targetTableField;
-            } else {
-                // Many-to-many relationships need a junction table, skip for now
-                return;
+                // Determine which table should have the foreign key based on cardinality
+                // - FK goes on the "many" side when cardinalities differ
+                // - FK goes on target when cardinalities are the same (one:one, many:many)
+                // - Many-to-many needs a junction table, skip for SQL export
+                let fkTable, fkField, refTable, refField;
+
+                if (
+                    relationship.sourceCardinality === 'many' &&
+                    relationship.targetCardinality === 'many'
+                ) {
+                    // Many-to-many relationships need a junction table, skip
+                    return;
+                } else if (
+                    relationship.sourceCardinality === 'many' &&
+                    relationship.targetCardinality === 'one'
+                ) {
+                    // FK goes on source table (the many side)
+                    fkTable = sourceTable;
+                    fkField = sourceTableField;
+                    refTable = targetTable;
+                    refField = targetTableField;
+                } else {
+                    // All other cases: FK goes on target table
+                    // - one:one (same cardinality → target)
+                    // - one:many (target is many side → target)
+                    fkTable = targetTable;
+                    fkField = targetTableField;
+                    refTable = sourceTable;
+                    refField = sourceTableField;
+                }
+
+                const fkTableName = getQuotedTableName(fkTable, isDBMLFlow);
+                const refTableName = getQuotedTableName(refTable, isDBMLFlow);
+                const quotedFkFieldName = getQuotedFieldName(
+                    fkField.name,
+                    isDBMLFlow
+                );
+                const quotedRefFieldName = getQuotedFieldName(
+                    refField.name,
+                    isDBMLFlow
+                );
+
+                sqlScript += `ALTER TABLE ${fkTableName} ADD CONSTRAINT ${relationship.name} FOREIGN KEY (${quotedFkFieldName}) REFERENCES ${refTableName} (${quotedRefFieldName});\n`;
             }
-
-            const fkTableName = getQuotedTableName(fkTable, isDBMLFlow);
-            const refTableName = getQuotedTableName(refTable, isDBMLFlow);
-            const quotedFkFieldName = getQuotedFieldName(
-                fkField.name,
-                isDBMLFlow
-            );
-            const quotedRefFieldName = getQuotedFieldName(
-                refField.name,
-                isDBMLFlow
-            );
-
-            sqlScript += `ALTER TABLE ${fkTableName} ADD CONSTRAINT ${relationship.name} FOREIGN KEY (${quotedFkFieldName}) REFERENCES ${refTableName} (${quotedRefFieldName});\n`;
-        }
-    });
+        });
+    }
 
     return sqlScript;
 };
